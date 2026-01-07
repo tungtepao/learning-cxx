@@ -10,6 +10,10 @@ struct Tensor4D {
     Tensor4D(unsigned int const shape_[4], T const *data_) {
         unsigned int size = 1;
         // TODO: 填入正确的 shape 并计算 size
+        for (int i = 0; i < 4; ++i) {
+            shape[i] = shape_[i];
+            size *= shape[i];
+        }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
@@ -21,13 +25,38 @@ struct Tensor4D {
     Tensor4D(Tensor4D const &) = delete;
     Tensor4D(Tensor4D &&) noexcept = delete;
 
-    // 这个加法需要支持“单向广播”。
+    // 这个加法需要支持"单向广播"。
     // 具体来说，`others` 可以具有与 `this` 不同的形状，形状不同的维度长度必须为 1。
     // `others` 长度为 1 但 `this` 长度不为 1 的维度将发生广播计算。
     // 例如，`this` 形状为 `[1, 2, 3, 4]`，`others` 形状为 `[1, 2, 1, 4]`，
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
         // TODO: 实现单向广播的加法
+        unsigned int size = 1;
+        for (int i = 0; i < 4; ++i) {
+            size *= shape[i];
+        }
+
+        for (unsigned int i = 0; i < size; ++i) {
+            unsigned int indices[4];
+            unsigned int tmp = i;
+
+            indices[0] = tmp / (shape[1] * shape[2] * shape[3]);
+            tmp %= shape[1] * shape[2] * shape[3];
+            indices[1] = tmp / (shape[2] * shape[3]);
+            tmp %= shape[2] * shape[3];
+            indices[2] = tmp / shape[3];
+            indices[3] = tmp % shape[3];
+
+            unsigned int other_dim0 = (others.shape[0] == 1) ? 0 : indices[0];
+            unsigned int other_dim1 = (others.shape[1] == 1) ? 0 : indices[1];
+            unsigned int other_dim2 = (others.shape[2] == 1) ? 0 : indices[2];
+            unsigned int other_dim3 = (others.shape[3] == 1) ? 0 : indices[3];
+
+            unsigned int other_idx = ((other_dim0 * others.shape[1] + other_dim1) * others.shape[2] + other_dim2) * others.shape[3] + other_dim3;
+
+            data[i] += others.data[other_idx];
+        }
         return *this;
     }
 };
